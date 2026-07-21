@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  background: #FFFFFF;
+  color: #0B0F19;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.aeb-display { font-family: 'Space Grotesk', system-ui, sans-serif; }
+.aeb-mono { font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.04em; }
+
+.aeb-fade-up { animation: aebFadeUp .7s cubic-bezier(.16,1,.3,1) both; }
+@keyframes aebFadeUp { from { opacity:0; transform: translateY(16px);} to { opacity:1; transform:none; } }
+
+.aeb-pop { animation: aebPop .5s cubic-bezier(.16,1,.3,1) both; }
+@keyframes aebPop { from { opacity:0; transform: scale(.85);} to { opacity:1; transform:scale(1);} }
+
+.aeb-btn-primary { transition: transform .18s ease, box-shadow .18s ease, background .18s ease; }
+.aeb-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -8px rgba(30,79,216,0.45); }
+
+.aeb-card { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.aeb-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -20px rgba(11,15,25,0.25); border-color: #1E4FD8; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aeb-fade-up, .aeb-pop, .aeb-btn-primary, .aeb-card { animation: none !important; transition: none !important; }
+}
+
+.aeb-focus:focus-visible { outline: 2px solid #1E4FD8; outline-offset: 2px; }
+.aeb-slot { transition: all .4s cubic-bezier(.16,1,.3,1); }
