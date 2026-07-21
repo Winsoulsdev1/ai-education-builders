@@ -1,233 +1,100 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { CheckCircle2, ArrowRight } from "lucide-react";
 import {
-  C, Pill, PrimaryButton, GhostButton, SectionLabel, ErrorNote,
-  Field, inputClass, inputStyle,
-} from "../../components/ui";
-import { TRACKS, sbFetch, fromDb, toDb } from "../../lib/supabase";
+  CheckCircle2, ArrowRight, Radio, Compass, Target, Users, ShieldCheck,
+} from "lucide-react";
+import { C, Pill, PrimaryButton, GhostButton, SectionLabel } from "../components/ui";
+import { TRACKS, TOTAL_SEATS, sbFetch } from "../lib/supabase";
 
-const EMPTY_FORM = {
-  fullName: "", email: "", phone: "", whatsapp: "", country: "", state: "",
-  age: "", occupation: "", education: "", ownsSmartphone: "Yes", ownsLaptop: "No",
-  track: TRACKS[0].id, reason: "", hours: "10-15", linkedin: "", github: "",
-  portfolio: "", agree: false,
-};
+function BuilderRoster({ filled }) {
+  const slots = Array.from({ length: TOTAL_SEATS }, (_, i) => i);
+  return (
+    <div className="grid grid-cols-10 gap-1.5 max-w-md mx-auto md:mx-0">
+      {slots.map((i) => {
+        const isFilled = i < filled;
+        return (
+          <div
+            key={i}
+            className="aeb-slot aeb-pop aspect-square rounded-[4px]"
+            style={{
+              animationDelay: `${Math.min(i * 12, 900)}ms`,
+              background: isFilled ? C.blue : C.mist,
+              border: `1px solid ${isFilled ? C.blue : C.line}`,
+            }}
+            title={isFilled ? `Builder #${String(i + 1).padStart(3, "0")} — claimed` : `Seat #${String(i + 1).padStart(3, "0")} — open`}
+          />
+        );
+      })}
+    </div>
+  );
+}
 
-export default function Apply() {
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(null);
-  const [error, setError] = useState("");
-  const router = useRouter();
+export default function Home() {
+  const [applicantCount, setApplicantCount] = useState(0);
 
-  const set = (k) => (e) => {
-    const v = e.target.type === "checkbox" ? e.target.checked : e.target.value;
-    setForm((f) => ({ ...f, [k]: v }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    if (!form.fullName || !form.email || !form.phone || !form.country || !form.age || !form.agree) {
-      setError("Please fill in all required fields and accept the terms before submitting.");
-      return;
-    }
-    setSubmitting(true);
+  const refreshCount = useCallback(async () => {
     try {
-      const row = await sbFetch("/rest/v1/rpc/submit_application", {
-        method: "POST",
-        body: { payload: toDb(form) },
-      });
-      const applicant = fromDb(row);
-      try {
-        localStorage.setItem("my-application", JSON.stringify(applicant));
-      } catch {}
-      setDone(applicant);
-    } catch (err) {
-      if (String(err.message).toLowerCase().includes("duplicate")) {
-        setError("An application with this email already exists. Check your dashboard for its status.");
-      } else {
-        setError(err.message || "Something went wrong saving your application. Please try again.");
-      }
-    } finally {
-      setSubmitting(false);
+      const total = await sbFetch("/rest/v1/rpc/applicant_count", { method: "POST", body: {} });
+      if (typeof total === "number") setApplicantCount(total);
+    } catch {
+      // fails quietly if the applicant_count() function isn't set up yet
     }
-  };
+  }, []);
 
-  if (done) {
-    return (
-      <section className="max-w-xl mx-auto px-5 py-24 text-center aeb-fade-up">
-        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto" style={{ background: C.mist }}>
-          <CheckCircle2 size={28} style={{ color: C.blue }} />
-        </div>
-        <Pill>BUILDER #{String(done.builderNumber).padStart(3, "0")}</Pill>
-        <h2 className="aeb-display font-semibold text-3xl mt-4">You've claimed your seat, {done.fullName.split(" ")[0]}.</h2>
-        <p className="mt-3" style={{ color: C.slate }}>
-          Your application is saved. We'll review it and follow up by email or WhatsApp. Track your
-          status any time from your dashboard on this device.
-        </p>
-        <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          <PrimaryButton onClick={() => router.push("/dashboard")}>Go to my dashboard <ArrowRight size={16} /></PrimaryButton>
-          <Link href="/"><GhostButton>Back to mission</GhostButton></Link>
-        </div>
-      </section>
-    );
-  }
+  useEffect(() => { refreshCount(); }, [refreshCount]);
+
+  const filled = Math.min(applicantCount, TOTAL_SEATS);
+  const remaining = Math.max(TOTAL_SEATS - filled, 0);
+
+  const aboutItems = [
+    { icon: Compass, title: "Our vision", body: "A continent where world-class, AI-powered education reaches every learner, regardless of income, location or background — built by Africans, for Africans." },
+    { icon: Target, title: "Why Africa needs AI in education", body: "Millions of African students still lack access to quality teaching, feedback and mentorship. AI can close that gap at a scale traditional systems never could — if the people building it understand the continent it serves." },
+    { icon: Users, title: "Why we're building this movement", body: "The tools that will transform African education won't be imported. They'll be built by young Africans who understand the problem first-hand. This program exists to train that generation of builders." },
+    { icon: ShieldCheck, title: "Why skills matter more than certificates", body: "We're not handing out certificates for attendance. We're handing responsibility to people who can prove — through real, shipped work — that they can build. Curiosity, discipline and consistency matter more than what's already on your CV." },
+  ];
+
+  const reqs = [
+    "Own a smartphone", "Have internet access", "Are committed to learning, not just curious",
+    "Can dedicate at least 10 hours a week", "Are willing to work with a team",
+    "Love solving problems more than collecting certificates",
+  ];
+
+  const receiveList = [
+    "A structured learning roadmap for your track", "Weekly mentorship from people building in the field",
+    "Practical projects, not just theory", "A team of builders to work alongside",
+    "A real portfolio of shipped work", "The chance to build real AI products for African classrooms",
+    "Leadership development as you grow with the cohort",
+  ];
 
   return (
-    <section className="max-w-2xl mx-auto px-5 py-16">
-      <SectionLabel>APPLICATION — COHORT 1</SectionLabel>
-      <h2 className="aeb-display font-semibold text-3xl sm:text-4xl">Claim your seat as a Builder</h2>
-      <p className="mt-3" style={{ color: C.slate }}>Answer honestly. We're selecting for commitment and character, not polish.</p>
-
-      <form onSubmit={handleSubmit} className="mt-10 space-y-5">
-        <div className="grid sm:grid-cols-2 gap-5">
-          <Field label="Full name" required><input className={inputClass} style={inputStyle} value={form.fullName} onChange={set("fullName")} required /></Field>
-          <Field label="Email" required><input type="email" className={inputClass} style={inputStyle} value={form.email} onChange={set("email")} required /></Field>
-        </div>
-        <div className="grid sm:grid-cols-2 gap-5">
-          <Field label="Phone number" required><input className={inputClass} style={inputStyle} value={form.phone} onChange={set("phone")} required /></Field>
-          <Field label="WhatsApp number" required><input className={inputClass} style={inputStyle} value={form.whatsapp} onChange={set("whatsapp")} required /></Field>
-        </div>
-        <div className="grid sm:grid-cols-2 gap-5">
-          <Field label="Country" required><input className={inputClass} style={inputStyle} value={form.country} onChange={set("country")} required /></Field>
-          <Field label="State / Province"><input className={inputClass} style={inputStyle} value={form.state} onChange={set("state")} /></Field>
-        </div>
-        <div className="grid sm:grid-cols-2 gap-5">
-          <Field label="Age" required><input type="number" min="10" max="100" className={inputClass} style={inputStyle} value={form.age} onChange={set("age")} required /></Field>
-          <Field label="Occupation"><input className={inputClass} style={inputStyle} value={form.occupation} onChange={set("occupation")} /></Field>
-        </div>
-        <Field label="Highest education level">
-          <select className={inputClass} style={inputStyle} value={form.education} onChange={set("education")}>
-            <option value="">Select one</option>
-            <option>Secondary school</option>
-            <option>Undergraduate (in progress)</option>
-            <option>Bachelor's degree</option>
-            <option>Master's degree or higher</option>
-            <option>Vocational / technical training</option>
-            <option>Other</option>
-          </select>
-        </Field>
-        <div className="grid sm:grid-cols-2 gap-5">
-          <Field label="Do you own a smartphone?" required>
-            <select className={inputClass} style={inputStyle} value={form.ownsSmartphone} onChange={set("ownsSmartphone")}>
-              <option>Yes</option><option>No</option>
-            </select>
-          </Field>
-          <Field label="Do you own a laptop? (optional)">
-            <select className={inputClass} style={inputStyle} value={form.ownsLaptop} onChange={set("ownsLaptop")}>
-              <option>No</option><option>Yes</option>
-            </select>
-          </Field>
-        </div>
-        <Field label="Preferred learning track" required>
-          <select className={inputClass} style={inputStyle} value={form.track} onChange={set("track")}>
-            {TRACKS.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        </Field>
-        <Field label="Why do you want to join?" required>
-          <textarea rows={4} className={inputClass} style={inputStyle} value={form.reason} onChange={set("reason")} required />
-        </Field>
-        <Field label="How many hours can you dedicate each week?" required>
-          <select className={inputClass} style={inputStyle} value={form.hours} onChange={set("hours")}>
-            <option value="10-15">10–15 hours</option>
-            <option value="16-25">16–25 hours</option>
-            <option value="26+">26+ hours</option>
-          </select>
-        </Field>
-        <div className="grid sm:grid-cols-3 gap-5">
-          <Field label="LinkedIn (optional)"><input className={inputClass} style={inputStyle} value={form.linkedin} onChange={set("linkedin")} /></Field>
-          <Field label="GitHub (optional)"><input className={inputClass} style={inputStyle} value={form.github} onChange={set("github")} /></Field>
-          <Field label="Portfolio (optional)"><input className={inputClass} style={inputStyle} value={form.portfolio} onChange={set("portfolio")} /></Field>
-        </div>
-        <Field label="Upload passport photo (optional)">
-          <input type="file" accept="image/*" className={inputClass} style={inputStyle} />
-          <p className="text-xs mt-1" style={{ color: C.slate }}>
-            Photo storage is coming in a later update — this field is a placeholder for now.
+    <>
+      <section className="max-w-6xl mx-auto px-5 pt-14 pb-20 grid md:grid-cols-2 gap-12 items-center">
+        <div className="aeb-fade-up">
+          <Pill><Radio size={12} /> COHORT 1 · {remaining} OF {TOTAL_SEATS} SEATS OPEN</Pill>
+          <h1 className="aeb-display font-semibold leading-[1.05] mt-6 text-4xl sm:text-5xl">
+            Build the Future of African Education with AI
+          </h1>
+          <p className="mt-5 text-lg" style={{ color: C.slate }}>
+            Become one of the first 100 AI Education Builders. Join a community of young Africans
+            learning to build AI solutions that will transform education across the continent —
+            starting with nothing more than a smartphone and a decision to show up.
           </p>
-        </Field>
-        <label className="flex items-start gap-3">
-          <input type="checkbox" className="mt-1" checked={form.agree} onChange={set("agree")} />
-          <span className="text-sm" style={{ color: C.slate }}>
-            I agree to the Terms &amp; Conditions and understand this is a training and building program, not paid employment.
-          </span>
-        </label>
-
-        <ErrorNote>{error}</ErrorNote>
-
-        <PrimaryButton type="submit" full disabled={submitting}>
-          {submitting ? "Submitting..." : "Submit Application"}
-        </PrimaryButton>
-      </form>
-    </section>
-  );
-    }                <h3 className="font-semibold text-lg">{it.title}</h3>
-                <p className="mt-2" style={{ color: C.slate }}>{it.body}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="py-20" style={{ background: C.mist }}>
-        <div className="max-w-6xl mx-auto px-5">
-          <SectionLabel>ELIGIBILITY</SectionLabel>
-          <h2 className="aeb-display font-semibold text-3xl sm:text-4xl">Who can apply?</h2>
-          <p className="mt-3 max-w-xl" style={{ color: C.slate }}>Anyone who:</p>
-          <div className="grid sm:grid-cols-2 gap-4 mt-8">
-            {reqs.map((r) => (
-              <div key={r} className="flex items-start gap-3 bg-white rounded-xl p-4 border" style={{ borderColor: C.line }}>
-                <CheckCircle2 size={20} style={{ color: C.blue }} className="shrink-0 mt-0.5" />
-                <span>{r}</span>
-              </div>
-            ))}
+          <div className="mt-8 flex flex-col sm:flex-row gap-3">
+            <Link href="/apply"><PrimaryButton>Apply Now <ArrowRight size={16} /></PrimaryButton></Link>
+            <a href="#about"><GhostButton>Read the mission</GhostButton></a>
           </div>
-          <div className="mt-8"><Link href="/apply"><PrimaryButton>I meet this <ArrowRight size={16} /></PrimaryButton></Link></div>
+          <p className="aeb-mono text-xs mt-6" style={{ color: C.slate }}>
+            NO PRIOR TECH EXPERIENCE REQUIRED · 10+ HRS/WEEK · SMARTPHONE ONLY
+          </p>
+        </div>
+        <div className="aeb-fade-up" style={{ animationDelay: "150ms" }}>
+          <BuilderRoster filled={filled} />
+          <p className="text-center md:text-left text-sm mt-4" style={{ color: C.slate }}>
+            Every filled square is a builder who has already claimed their seat in Cohort 1.
+          </p>
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-5 py-20">
-        <SectionLabel>CHOOSE YOUR LANE</SectionLabel>
-        <h2 className="aeb-display font-semibold text-3xl sm:text-4xl max-w-2xl">Twelve tracks. One mission.</h2>
-        <p className="mt-3 max-w-xl" style={{ color: C.slate }}>You don't need to know which one is "yours" yet. You just need to be willing to start.</p>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-10">
-          {TRACKS.map((t) => (
-            <div key={t.id} className="aeb-card rounded-2xl p-6 border bg-white" style={{ borderColor: C.line }}>
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style={{ background: C.mist }}>
-                <t.icon size={18} style={{ color: C.blue }} />
-              </div>
-              <h3 className="font-semibold">{t.name}</h3>
-              <p className="text-sm mt-1" style={{ color: C.slate }}>{t.blurb}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="py-20" style={{ background: C.ink }}>
-        <div className="max-w-6xl mx-auto px-5">
-          <SectionLabel>WHAT YOU RECEIVE</SectionLabel>
-          <h2 className="aeb-display font-semibold text-3xl sm:text-4xl text-white max-w-2xl">
-            You're not signing up for a course. You're joining a build team.
-          </h2>
-          <div className="grid sm:grid-cols-2 gap-4 mt-10">
-            {receiveList.map((l) => (
-              <div key={l} className="flex items-start gap-3">
-                <CheckCircle2 size={18} style={{ color: C.blueLight }} className="shrink-0 mt-1" />
-                <span className="text-white/90">{l}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="max-w-6xl mx-auto px-5 py-20 text-center">
-        <h2 className="aeb-display font-semibold text-3xl sm:text-4xl">Ready to claim your seat?</h2>
-        <p className="mt-3" style={{ color: C.slate }}>Applications for Cohort 1 are open now.</p>
-        <div className="mt-8"><Link href="/apply"><PrimaryButton>Apply Now <ArrowRight size={16} /></PrimaryButton></Link></div>
-      </section>
-    </>
-  );
-    }
+      <section id="about" className="max-w-6xl mx-auto px-5 py-20">
+        <SectionLabel>THE MISSION</SectionLabel>
