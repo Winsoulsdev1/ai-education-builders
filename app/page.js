@@ -98,3 +98,80 @@ export default function Home() {
 
       <section id="about" className="max-w-6xl mx-auto px-5 py-20">
         <SectionLabel>THE MISSION</SectionLabel>
+<h2 className="aeb-display font-semibold text-3xl sm:text-4xl max-w-2xl">
+          This is not a job application. It's a movement to build.
+        </h2>
+        <div className="grid sm:grid-cols-2 gap-8 mt-12">
+          {aboutItems.map((it) => (
+            <div key={it.title} className="flex gap-4">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: C.ink }}>
+                <it.icon size={18} color="#fff" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">{it.title}</h3>
+                <p className="mt-2" style={{ color: C.slate }}>{it.body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="py-20" style={{ background: C.mist }}>
+        <div className="max-w-6xl mx-auto px-5">
+          <SectionLabel>ELIGIBILITY</SectionLabel>
+          <h2 className="aeb-display font-semibold text-3xl sm:text-4xl">Who can apply?</h2>
+          <p className="mt-3 max-w-xl" style={{ color: C.slate }}>Anyone who:</p>
+          <div className="grid sm:grid-cols-2 gap-4 mt-8">
+            {reqs.map((r) => (
+              <div key={r} className="flex items-start gap-3 bg-white rounded-xl p-4 border" style={{ borderColor: C.line }}>
+                <CheckCircle2 size={20} style={{ color: C.blue }} className="shrink-0 mt-0.5" />
+                <span>{r}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8"><Link href="/apply"><PrimaryButton>I meet this <ArrowRight size={16} /></PrimaryButton></Link></div>
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-5 py-20">
+        <SectionLabel>CHOOSE YOUR LANE</SectionLabel>
+        <h2 className="aeb-display font-semibold text-3xl sm:text-4xl max-w-2xl">Twelve tracks. One mission.</h2>
+        <p className="mt-3 max-w-xl" style={{ color: C.slate }}>You don't need to know which one is "yours" yet. You just need to be willing to start.</p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-10">
+          {TRACKS.map((t) => (
+            <div key={t.id} className="aeb-card rounded-2xl p-6 border bg-white" style={{ borderColor: C.line }}>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style={{ background: C.mist }}>
+                <t.icon size={18} style={{ color: C.blue }} />
+              </div>
+              <h3 className="font-semibold">{t.name}</h3>
+              <p className="text-sm mt-1" style={{ color: C.slate }}>{t.blurb}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="py-20" style={{ background: C.ink }}>
+        <div className="max-w-6xl mx-auto px-5">
+          <SectionLabel>WHAT YOU RECEIVE</SectionLabel>
+          <h2 className="aeb-display font-semibold text-3xl sm:text-4xl text-white max-w-2xl">
+            You're not signing up for a course. You're joining a build team.
+          </h2>
+          <div className="grid sm:grid-cols-2 gap-4 mt-10">
+            {receiveList.map((l) => (
+              <div key={l} className="flex items-start gap-3">
+                <CheckCircle2 size={18} style={{ color: C.blueLight }} className="shrink-0 mt-1" />
+                <span className="text-white/90">{l}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-5 py-20 text-center">
+        <h2 className="aeb-display font-semibold text-3xl sm:text-4xl">Ready to claim your seat?</h2>
+        <p className="mt-3" style={{ color: C.slate }}>Applications for Cohort 1 are open now.</p>
+        <div className="mt-8"><Link href="/apply"><PrimaryButton>Apply Now <ArrowRight size={16} /></PrimaryButton></Link></div>
+      </section>
+    </>
+  );
+              }
