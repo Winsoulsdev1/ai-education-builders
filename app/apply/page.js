@@ -36,11 +36,10 @@ export default function Apply() {
       return;
     }
     setSubmitting(true);
-    try {
-      const [row] = await sbFetch("/rest/v1/applicants", {
+try {
+      const row = await sbFetch("/rest/v1/rpc/submit_application", {
         method: "POST",
-        body: toDb(form),
-        prefer: "return=representation",
+        body: { payload: toDb(form) },
       });
       const applicant = fromDb(row);
       try {
