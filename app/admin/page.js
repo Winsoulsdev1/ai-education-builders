@@ -157,6 +157,24 @@ export default function Admin() {
       </div>
 
       <div className="mt-10 rounded-2xl border p-5" style={{ borderColor: C.line }}>
+          <p className="aeb-mono text-xs mb-3" style={{ color: C.slate }}>POST ANNOUNCEMENT</p>
+          <div className="space-y-3">
+            <input className={inputClass} style={inputStyle} placeholder="Title" value={annTitle} onChange={(e) => setAnnTitle(e.target.value)} />
+            <textarea className={inputClass} style={inputStyle} rows={3} placeholder="Message" value={annBody} onChange={(e) => setAnnBody(e.target.value)} />
+            <ErrorNote>{annError}</ErrorNote>
+            <PrimaryButton onClick={postAnnouncement}>Post announcement</PrimaryButton>
+          </div>
+          <div className="mt-6 space-y-3">
+            {announcements.map((a) => (
+              <div key={a.id} className="rounded-xl p-4 border" style={{ borderColor: C.line }}>
+                <p className="font-medium text-sm">{a.title}</p>
+                <p className="text-sm mt-1" style={{ color: C.slate }}>{a.body}</p>
+              </div>
+            ))}
+            {announcements.length === 0 && <p className="text-sm" style={{ color: C.slate }}>No announcements posted yet.</p>}
+          </div>
+        </div>
+  <div className="mt-10 rounded-2xl border p-5" style={{ borderColor: C.line }}>
         <p className="aeb-mono text-xs mb-3" style={{ color: C.slate }}>APPLICANTS BY TRACK</p>
         <div style={{ width: "100%", height: 260 }}>
           <ResponsiveContainer>
