@@ -80,6 +80,33 @@ export default function Admin() {
   };
 
   useEffect(() => { if (token) refreshApplicants(token); }, [token]);
+  const refreshAnnouncements = async () => {
+    try {
+      const rows = await sbFetch("/rest/v1/announcements?select=*&order=created_at.desc");
+      setAnnouncements(rows || []);
+    } catch {}
+  };
+  useEffect(() => { refreshAnnouncements(); }, []);
+
+  const postAnnouncement = async () => {
+    setAnnError("");
+    if (!annTitle || !annBody) {
+      setAnnError("Please fill in both a title and a message.");
+      return;
+    }
+    try {
+      await sbFetch("/rest/v1/announcements", {
+        method: "POST",
+        token,
+        body: { title: annTitle, body: annBody },
+      });
+      setAnnTitle("");
+      setAnnBody("");
+      await refreshAnnouncements();
+    } catch (err) {
+      setAnnError(err.message || "Couldn't post announcement.");
+    }
+  };
 
   const countries = useMemo(() => Array.from(new Set(applicants.map((a) => a.country).filter(Boolean))).sort(), [applicants]);
   const filtered = applicants.filter((a) =>
