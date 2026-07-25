@@ -5,7 +5,8 @@ import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import { C, Pill, PrimaryButton, StatusBadge } from "../../components/ui";
 import { TRACKS, CHECKLIST, sbFetch } from "../../lib/supabase";
 
-const [me, setMe] = useState(undefined);
+export default function Dashboard() {
+  const [me, setMe] = useState(undefined);
   const [checked, setChecked] = useState({});
   const [announcements, setAnnouncements] = useState([]);
 
@@ -76,7 +77,21 @@ const [me, setMe] = useState(undefined);
         </div>
       </div>
 
-     <div className="mt-10">
+      <div className="mt-10">
+        <h3 className="font-semibold text-lg">Learning resources</h3>
+        <div className="grid sm:grid-cols-2 gap-4 mt-4">
+          <div className="rounded-xl p-4 border" style={{ borderColor: C.line, background: C.mist }}>
+            <p className="font-medium text-sm">Cohort 1 Builder Handbook</p>
+            <p className="text-xs mt-1" style={{ color: C.slate }}>Shared once your application is accepted.</p>
+          </div>
+          <div className="rounded-xl p-4 border" style={{ borderColor: C.line, background: C.mist }}>
+            <p className="font-medium text-sm">Track orientation deck — {track?.name}</p>
+            <p className="text-xs mt-1" style={{ color: C.slate }}>Unlocks after orientation call.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-10">
         <h3 className="font-semibold text-lg">Announcements</h3>
         <div className="space-y-3 mt-4">
           {announcements.map((a) => (
@@ -87,19 +102,7 @@ const [me, setMe] = useState(undefined);
           ))}
           {announcements.length === 0 && <p className="text-sm" style={{ color: C.slate }}>No announcements yet.</p>}
         </div>
-      </div> 
-
-      <div className="mt-10">
-        <h3 className="font-semibold text-lg">Announcements</h3>
-        <div className="space-y-3 mt-4">
-          {ANNOUNCEMENTS.map((a) => (
-            <div key={a.title} className="rounded-xl p-4 border" style={{ borderColor: C.line }}>
-              <p className="font-medium text-sm">{a.title}</p>
-              <p className="text-sm mt-1" style={{ color: C.slate }}>{a.body}</p>
-            </div>
-          ))}
-        </div>
       </div>
     </section>
   );
-      }
+    }
