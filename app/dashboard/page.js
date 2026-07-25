@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import { C, Pill, PrimaryButton, StatusBadge } from "../../components/ui";
-import { TRACKS, CHECKLIST, sbFetch } from "../../lib/supabase";
+import { TRACKS, CHECKLIST, sbFetch, WHATSAPP_GROUP_LINK } from "../../lib/supabase";
 
 export default function Dashboard() {
   const [me, setMe] = useState(undefined);
