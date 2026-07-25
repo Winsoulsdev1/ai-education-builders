@@ -1,177 +1,260 @@
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
+import React, { useState, useEffect, useMemo } from "react";
+import { Mail, MessageCircle, Download, LogOut } from "lucide-react";
 import {
-  CheckCircle2, ArrowRight, Radio, Compass, Target, Users, ShieldCheck,
-} from "lucide-react";
-import { C, Pill, PrimaryButton, GhostButton, SectionLabel } from "../components/ui";
-import { TRACKS, TOTAL_SEATS, sbFetch } from "../lib/supabase";
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
+import {
+  C, PrimaryButton, GhostButton, ErrorNote, StatusBadge, inputClass, inputStyle,
+} from "../../components/ui";
+import { TRACKS, sbFetch, sbSignIn, fromDb } from "../../lib/supabase";
 
-function BuilderRoster({ filled }) {
-  const slots = Array.from({ length: TOTAL_SEATS }, (_, i) => i);
+function toCSV(rows) {
+  if (!rows.length) return "";
+  const headers = Object.keys(rows[0]);
+  const escape = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines = [headers.join(","), ...rows.map((r) => headers.map((h) => escape(r[h])).join(","))];
+  return lines.join("\n");
+}
+function downloadCSV(rows, filename) {
+  const csv = toCSV(rows);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function AdminLogin({ onSignedIn }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const data = await sbSignIn(email, password);
+      onSignedIn(data.access_token);
+    } catch (err) {
+      setError(err.message || "Sign-in failed. Check your email and password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="grid grid-cols-10 gap-1.5 max-w-md mx-auto md:mx-0">
-      {slots.map((i) => {
-        const isFilled = i < filled;
-        return (
-          <div
-            key={i}
-            className="aeb-slot aeb-pop aspect-square rounded-[4px]"
-            style={{
-              animationDelay: `${Math.min(i * 12, 900)}ms`,
-              background: isFilled ? C.blue : C.mist,
-              border: `1px solid ${isFilled ? C.blue : C.line}`,
-            }}
-            title={isFilled ? `Builder #${String(i + 1).padStart(3, "0")} — claimed` : `Seat #${String(i + 1).padStart(3, "0")} — open`}
-          />
-        );
-      })}
-    </div>
+    <section className="max-w-sm mx-auto px-5 py-24">
+      <h2 className="aeb-display font-semibold text-2xl">Admin sign-in</h2>
+      <p className="text-sm mt-2" style={{ color: C.slate }}>Sign in with the admin account created in Supabase Authentication.</p>
+      <form onSubmit={handleLogin} className="mt-5 space-y-4">
+        <input type="email" placeholder="Email" className={inputClass} style={inputStyle} value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input type="password" placeholder="Password" className={inputClass} style={inputStyle} value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <ErrorNote>{error}</ErrorNote>
+        <PrimaryButton type="submit" full disabled={loading}>{loading ? "Signing in..." : "Enter admin portal"}</PrimaryButton>
+      </form>
+    </section>
   );
 }
 
-export default function Home() {
-  const [applicantCount, setApplicantCount] = useState(0);
+export default function Admin() {
+  const [token, setToken] = useState(null);
+  const [applicants, setApplicants] = useState([]);
+  const [applicantsError, setApplicantsError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [countryFilter, setCountryFilter] = useState("all");
+  const [trackFilter, setTrackFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [announcements, setAnnouncements] = useState([]);
+  const [annTitle, setAnnTitle] = useState("");
+  const [annBody, setAnnBody] = useState("");
+  const [annError, setAnnError] = useState("");
 
-  const refreshCount = useCallback(async () => {
+  const refreshApplicants = async (t) => {
+    setApplicantsError("");
     try {
-      const total = await sbFetch("/rest/v1/rpc/applicant_count", { method: "POST", body: {} });
-      if (typeof total === "number") setApplicantCount(total);
-    } catch {
-      // fails quietly if the applicant_count() function isn't set up yet
+      const rows = await sbFetch("/rest/v1/applicants?select=*&order=builder_number.asc", { token: t });
+      setApplicants((rows || []).map(fromDb));
+    } catch (err) {
+      setApplicantsError(err.message || "Couldn't load applicants.");
     }
-  }, []);
+  };
 
-  useEffect(() => { refreshCount(); }, [refreshCount]);
+  useEffect(() => { if (token) refreshApplicants(token); }, [token]);
 
-  const filled = Math.min(applicantCount, TOTAL_SEATS);
-  const remaining = Math.max(TOTAL_SEATS - filled, 0);
+  const refreshAnnouncements = async () => {
+    try {
+      const rows = await sbFetch("/rest/v1/announcements?select=*&order=created_at.desc");
+      setAnnouncements(rows || []);
+    } catch {}
+  };
+  useEffect(() => { refreshAnnouncements(); }, []);
 
-  const aboutItems = [
-    { icon: Compass, title: "Our vision", body: "A continent where world-class, AI-powered education reaches every learner, regardless of income, location or background — built by Africans, for Africans." },
-    { icon: Target, title: "Why Africa needs AI in education", body: "Millions of African students still lack access to quality teaching, feedback and mentorship. AI can close that gap at a scale traditional systems never could — if the people building it understand the continent it serves." },
-    { icon: Users, title: "Why we're building this movement", body: "The tools that will transform African education won't be imported. They'll be built by young Africans who understand the problem first-hand. This program exists to train that generation of builders." },
-    { icon: ShieldCheck, title: "Why skills matter more than certificates", body: "We're not handing out certificates for attendance. We're handing responsibility to people who can prove — through real, shipped work — that they can build. Curiosity, discipline and consistency matter more than what's already on your CV." },
-  ];
+  const postAnnouncement = async () => {
+    setAnnError("");
+    if (!annTitle || !annBody) {
+      setAnnError("Please fill in both a title and a message.");
+      return;
+    }
+    try {
+      await sbFetch("/rest/v1/announcements", {
+        method: "POST",
+        token,
+        body: { title: annTitle, body: annBody },
+      });
+      setAnnTitle("");
+      setAnnBody("");
+      await refreshAnnouncements();
+    } catch (err) {
+      setAnnError(err.message || "Couldn't post announcement.");
+    }
+  };
 
-  const reqs = [
-    "Own a smartphone", "Have internet access", "Are committed to learning, not just curious",
-    "Can dedicate at least 10 hours a week", "Are willing to work with a team",
-    "Love solving problems more than collecting certificates",
-  ];
+  const countries = useMemo(() => Array.from(new Set(applicants.map((a) => a.country).filter(Boolean))).sort(), [applicants]);
+  const filtered = applicants.filter((a) =>
+    (countryFilter === "all" || a.country === countryFilter) &&
+    (trackFilter === "all" || a.track === trackFilter) &&
+    (statusFilter === "all" || a.status === statusFilter)
+  );
+  const trackCounts = TRACKS.map((t) => ({
+    name: t.name.length > 14 ? t.name.slice(0, 14) + "…" : t.name,
+    count: applicants.filter((a) => a.track === t.id).length,
+  }));
 
-  const receiveList = [
-    "A structured learning roadmap for your track", "Weekly mentorship from people building in the field",
-    "Practical projects, not just theory", "A team of builders to work alongside",
-    "A real portfolio of shipped work", "The chance to build real AI products for African classrooms",
-    "Leadership development as you grow with the cohort",
-  ];
+  const setStatus = async (applicant, status) => {
+    setActionError("");
+    try {
+      await sbFetch(`/rest/v1/applicants?id=eq.${applicant.id}`, { method: "PATCH", token, body: { status } });
+      await refreshApplicants(token);
+    } catch (err) {
+      setActionError(err.message || "Couldn't update this applicant.");
+    }
+  };
+
+  if (!token) return <AdminLogin onSignedIn={setToken} />;
 
   return (
-    <>
-      <section className="max-w-6xl mx-auto px-5 pt-14 pb-20 grid md:grid-cols-2 gap-12 items-center">
-        <div className="aeb-fade-up">
-          <Pill><Radio size={12} /> COHORT 1 · {remaining} OF {TOTAL_SEATS} SEATS OPEN</Pill>
-          <h1 className="aeb-display font-semibold leading-[1.05] mt-6 text-4xl sm:text-5xl">
-            Build the Future of African Education with AI
-          </h1>
-          <p className="mt-5 text-lg" style={{ color: C.slate }}>
-            Become one of the first 100 AI Education Builders. Join a community of young Africans
-            learning to build AI solutions that will transform education across the continent —
-            starting with nothing more than a smartphone and a decision to show up.
-          </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-3">
-            <Link href="/apply"><PrimaryButton>Apply Now <ArrowRight size={16} /></PrimaryButton></Link>
-            <a href="#about"><GhostButton>Read the mission</GhostButton></a>
-          </div>
-          <p className="aeb-mono text-xs mt-6" style={{ color: C.slate }}>
-            NO PRIOR TECH EXPERIENCE REQUIRED · 10+ HRS/WEEK · SMARTPHONE ONLY
-          </p>
-        </div>
-        <div className="aeb-fade-up" style={{ animationDelay: "150ms" }}>
-          <BuilderRoster filled={filled} />
-          <p className="text-center md:text-left text-sm mt-4" style={{ color: C.slate }}>
-            Every filled square is a builder who has already claimed their seat in Cohort 1.
-          </p>
-        </div>
-      </section>
+    <section className="max-w-6xl mx-auto px-5 py-12">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="aeb-display font-semibold text-3xl">Admin portal</h2>
+        <GhostButton onClick={() => setToken(null)}><LogOut size={16} /> Sign out</GhostButton>
+      </div>
 
-      <section id="about" className="max-w-6xl mx-auto px-5 py-20">
-        <SectionLabel>THE MISSION</SectionLabel>
-<h2 className="aeb-display font-semibold text-3xl sm:text-4xl max-w-2xl">
-          This is not a job application. It's a movement to build.
-        </h2>
-        <div className="grid sm:grid-cols-2 gap-8 mt-12">
-          {aboutItems.map((it) => (
-            <div key={it.title} className="flex gap-4">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: C.ink }}>
-                <it.icon size={18} color="#fff" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">{it.title}</h3>
-                <p className="mt-2" style={{ color: C.slate }}>{it.body}</p>
-              </div>
+      <ErrorNote>{applicantsError}</ErrorNote>
+      <ErrorNote>{actionError}</ErrorNote>
+
+      <div className="grid sm:grid-cols-3 gap-5 mt-8">
+        <div className="rounded-2xl p-5 border" style={{ borderColor: C.line }}>
+          <p className="aeb-mono text-xs" style={{ color: C.slate }}>TOTAL APPLICANTS</p>
+          <p className="text-2xl font-semibold mt-1">{applicants.length}</p>
+        </div>
+        <div className="rounded-2xl p-5 border" style={{ borderColor: C.line }}>
+          <p className="aeb-mono text-xs" style={{ color: C.slate }}>ACCEPTED</p>
+          <p className="text-2xl font-semibold mt-1" style={{ color: C.good }}>{applicants.filter((a) => a.status === "accepted").length}</p>
+        </div>
+        <div className="rounded-2xl p-5 border" style={{ borderColor: C.line }}>
+          <p className="aeb-mono text-xs" style={{ color: C.slate }}>PENDING REVIEW</p>
+          <p className="text-2xl font-semibold mt-1" style={{ color: C.blue }}>{applicants.filter((a) => a.status === "pending").length}</p>
+        </div>
+      </div>
+
+      <div className="mt-10 rounded-2xl border p-5" style={{ borderColor: C.line }}>
+        <p className="aeb-mono text-xs mb-3" style={{ color: C.slate }}>POST ANNOUNCEMENT</p>
+        <div className="space-y-3">
+          <input className={inputClass} style={inputStyle} placeholder="Title" value={annTitle} onChange={(e) => setAnnTitle(e.target.value)} />
+          <textarea className={inputClass} style={inputStyle} rows={3} placeholder="Message" value={annBody} onChange={(e) => setAnnBody(e.target.value)} />
+          <ErrorNote>{annError}</ErrorNote>
+          <PrimaryButton onClick={postAnnouncement}>Post announcement</PrimaryButton>
+        </div>
+        <div className="mt-6 space-y-3">
+          {announcements.map((a) => (
+            <div key={a.id} className="rounded-xl p-4 border" style={{ borderColor: C.line }}>
+              <p className="font-medium text-sm">{a.title}</p>
+              <p className="text-sm mt-1" style={{ color: C.slate }}>{a.body}</p>
             </div>
           ))}
+          {announcements.length === 0 && <p className="text-sm" style={{ color: C.slate }}>No announcements posted yet.</p>}
         </div>
-      </section>
+      </div>
 
-      <section className="py-20" style={{ background: C.mist }}>
-        <div className="max-w-6xl mx-auto px-5">
-          <SectionLabel>ELIGIBILITY</SectionLabel>
-          <h2 className="aeb-display font-semibold text-3xl sm:text-4xl">Who can apply?</h2>
-          <p className="mt-3 max-w-xl" style={{ color: C.slate }}>Anyone who:</p>
-          <div className="grid sm:grid-cols-2 gap-4 mt-8">
-            {reqs.map((r) => (
-              <div key={r} className="flex items-start gap-3 bg-white rounded-xl p-4 border" style={{ borderColor: C.line }}>
-                <CheckCircle2 size={20} style={{ color: C.blue }} className="shrink-0 mt-0.5" />
-                <span>{r}</span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-8"><Link href="/apply"><PrimaryButton>I meet this <ArrowRight size={16} /></PrimaryButton></Link></div>
+      <div className="mt-10 rounded-2xl border p-5" style={{ borderColor: C.line }}>
+        <p className="aeb-mono text-xs mb-3" style={{ color: C.slate }}>APPLICANTS BY TRACK</p>
+        <div style={{ width: "100%", height: 260 }}>
+          <ResponsiveContainer>
+            <BarChart data={trackCounts}>
+              <CartesianGrid strokeDasharray="3 3" stroke={C.line} />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={70} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Bar dataKey="count" fill={C.blue} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-      </section>
+      </div>
 
-      <section className="max-w-6xl mx-auto px-5 py-20">
-        <SectionLabel>CHOOSE YOUR LANE</SectionLabel>
-        <h2 className="aeb-display font-semibold text-3xl sm:text-4xl max-w-2xl">Twelve tracks. One mission.</h2>
-        <p className="mt-3 max-w-xl" style={{ color: C.slate }}>You don't need to know which one is "yours" yet. You just need to be willing to start.</p>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-10">
-          {TRACKS.map((t) => (
-            <div key={t.id} className="aeb-card rounded-2xl p-6 border bg-white" style={{ borderColor: C.line }}>
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style={{ background: C.mist }}>
-                <t.icon size={18} style={{ color: C.blue }} />
-              </div>
-              <h3 className="font-semibold">{t.name}</h3>
-              <p className="text-sm mt-1" style={{ color: C.slate }}>{t.blurb}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <div className="flex flex-wrap gap-3 items-center mt-10">
+        <select className={inputClass} style={{ ...inputStyle, width: "auto" }} value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)}>
+          <option value="all">All countries</option>
+          {countries.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select className={inputClass} style={{ ...inputStyle, width: "auto" }} value={trackFilter} onChange={(e) => setTrackFilter(e.target.value)}>
+          <option value="all">All tracks</option>
+          {TRACKS.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <select className={inputClass} style={{ ...inputStyle, width: "auto" }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="all">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="accepted">Accepted</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <div className="ml-auto"><GhostButton onClick={() => downloadCSV(filtered, "applicants.csv")}><Download size={16} /> Export CSV</GhostButton></div>
+      </div>
 
-      <section className="py-20" style={{ background: C.ink }}>
-        <div className="max-w-6xl mx-auto px-5">
-          <SectionLabel>WHAT YOU RECEIVE</SectionLabel>
-          <h2 className="aeb-display font-semibold text-3xl sm:text-4xl text-white max-w-2xl">
-            You're not signing up for a course. You're joining a build team.
-          </h2>
-          <div className="grid sm:grid-cols-2 gap-4 mt-10">
-            {receiveList.map((l) => (
-              <div key={l} className="flex items-start gap-3">
-                <CheckCircle2 size={18} style={{ color: C.blueLight }} className="shrink-0 mt-1" />
-                <span className="text-white/90">{l}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="max-w-6xl mx-auto px-5 py-20 text-center">
-        <h2 className="aeb-display font-semibold text-3xl sm:text-4xl">Ready to claim your seat?</h2>
-        <p className="mt-3" style={{ color: C.slate }}>Applications for Cohort 1 are open now.</p>
-        <div className="mt-8"><Link href="/apply"><PrimaryButton>Apply Now <ArrowRight size={16} /></PrimaryButton></Link></div>
-      </section>
-    </>
+      <div className="mt-6 overflow-x-auto rounded-2xl border" style={{ borderColor: C.line }}>
+        <table className="w-full text-sm">
+          <thead>
+            <tr style={{ background: C.mist }}>
+              {["#", "Name", "Country", "Track", "Status", "Actions"].map((h) => (
+                <th key={h} className="text-left px-4 py-3 font-medium whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr><td colSpan={6} className="px-4 py-8 text-center" style={{ color: C.slate }}>No applicants match these filters.</td></tr>
+            )}
+            {filtered.map((a) => {
+              const track = TRACKS.find((t) => t.id === a.track);
+              return (
+                <tr key={a.id} className="border-t" style={{ borderColor: C.line }}>
+                  <td className="px-4 py-3 aeb-mono">#{String(a.builderNumber).padStart(3, "0")}</td>
+                  <td className="px-4 py-3">
+                    <p className="font-medium">{a.fullName}</p>
+                    <p className="text-xs" style={{ color: C.slate }}>{a.email}</p>
+                  </td>
+                  <td className="px-4 py-3">{a.country}</td>
+                  <td className="px-4 py-3">{track?.name}</td>
+                  <td className="px-4 py-3"><StatusBadge status={a.status} /></td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      <button onClick={() => setStatus(a, "accepted")} className="aeb-focus text-xs px-2.5 py-1.5 rounded-full border" style={{ borderColor: C.good, color: C.good }}>Accept</button>
+                      <button onClick={() => setStatus(a, "rejected")} className="aeb-focus text-xs px-2.5 py-1.5 rounded-full border" style={{ borderColor: C.bad, color: C.bad }}>Reject</button>
+                      <a href={`mailto:${a.email}`} className="aeb-focus text-xs px-2.5 py-1.5 rounded-full border inline-flex items-center gap-1" style={{ borderColor: C.line }}><Mail size={12} /> Email</a>
+                      <a href={`https://wa.me/${a.whatsapp?.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="aeb-focus text-xs px-2.5 py-1.5 rounded-full border inline-flex items-center gap-1" style={{ borderColor: C.line }}><MessageCircle size={12} /> WhatsApp</a>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs mt-4" style={{ color: C.slate }}>
+        Email and WhatsApp buttons open your own mail/WhatsApp app with the applicant pre-filled — sending isn't automated yet.
+      </p>
+    </section>
   );
-              }
+  }
