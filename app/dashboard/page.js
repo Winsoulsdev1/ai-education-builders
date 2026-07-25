@@ -75,6 +75,11 @@ export default function Dashboard() {
             </button>
           ))}
         </div>
+            <a href={WHATSAPP_GROUP_LINK} target="_blank" rel="noreferrer"
+          className="aeb-focus mt-3 w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 font-medium"
+          style={{ background: C.blue, color: "#fff" }}>
+          Join our WhatsApp group
+        </a>
       </div>
 
       <div className="mt-10">
