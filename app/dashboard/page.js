@@ -2,8 +2,87 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
-import { C, Pill, PrimaryButton, StatusBadge } from "../../components/ui";
-import { TRACKS, CHECKLIST, sbFetch, WHATSAPP_GROUP_LINK } from "../../lib/supabase";
+import { C, Pill, PrimaryButton, StatusBadge, ErrorNote, inputClass, inputStyle } from "../../components/ui";
+import { TRACKS, CHECKLIST, sbFetch, sbSendCode, sbVerifyCode, WHATSAPP_GROUP_LINK } from "../../lib/supabase";
+
+function DashboardLogin({ onFound }) {
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [stage, setStage] = useState("email");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const sendCode = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await sbSendCode(email);
+      setStage("code");
+    } catch (err) {
+      setError(err.message || "Couldn't send code. Check your email address.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verify = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const data = await sbVerifyCode(email, code);
+      const rows = await sbFetch(`/rest/v1/applicants?select=*&email=eq.${encodeURIComponent(email)}`, {
+        token: data.access_token,
+      });
+      if (!rows || !rows.length) {
+        setError("No application found for this email.");
+        return;
+      }
+      onFound(rows[0]);
+    } catch (err) {
+      setError(err.message || "Invalid or expired code.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section className="max-w-sm mx-auto px-5 py-24">
+      <h2 className="aeb-display font-semibold text-2xl">Access your dashboard</h2>
+      <p className="text-sm mt-2" style={{ color: C.slate }}>
+        {stage === "email"
+          ? "Enter the email you applied with — we'll send a one-time code."
+          : `Enter the 6-digit code sent to ${email}.`}
+      </p>
+      {stage === "email" ? (
+        <form onSubmit={sendCode} className="mt-5 space-y-4">
+          <input type="email" placeholder="Email" className={inputClass} style={inputStyle} value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <ErrorNote>{error}</ErrorNote>
+          <PrimaryButton type="submit" full disabled={loading}>{loading ? "Sending..." : "Send code"}</PrimaryButton>
+        </form>
+      ) : (
+        <form onSubmit={verify} className="mt-5 space-y-4">
+          <input type="text" inputMode="numeric" placeholder="6-digit code" className={inputClass} style={inputStyle} value={code} onChange={(e) => setCode(e.target.value)} required />
+          <ErrorNote>{error}</ErrorNote>
+          <PrimaryButton type="submit" full disabled={loading}>{loading ? "Checking..." : "Verify & continue"}</PrimaryButton>
+        </form>
+      )}
+    </section>
+  );
+}
+
+function fromDb(row) {
+  return {
+    id: row.id,
+    builderNumber: row.builder_number,
+    fullName: row.full_name,
+    email: row.email,
+    track: row.track_id,
+    hours: row.hours_per_week,
+    status: row.status,
+  };
+}
 
 export default function Dashboard() {
   const [me, setMe] = useState(undefined);
@@ -25,17 +104,19 @@ export default function Dashboard() {
     })();
   }, []);
 
+  const handleFound = (row) => {
+    const applicant = fromDb(row);
+    try {
+      localStorage.setItem("my-application", JSON.stringify(applicant));
+    } catch {}
+    setMe(applicant);
+  };
+
   if (me === undefined) {
     return <div className="max-w-2xl mx-auto px-5 py-24 text-center" style={{ color: C.slate }}>Loading your dashboard…</div>;
   }
   if (!me) {
-    return (
-      <section className="max-w-lg mx-auto px-5 py-24 text-center">
-        <h2 className="aeb-display font-semibold text-3xl">No application found on this device</h2>
-        <p className="mt-3" style={{ color: C.slate }}>Submit an application to unlock your builder dashboard.</p>
-        <div className="mt-8"><Link href="/apply"><PrimaryButton>Apply Now <ArrowRight size={16} /></PrimaryButton></Link></div>
-      </section>
-    );
+    return <DashboardLogin onFound={handleFound} />;
   }
 
   const track = TRACKS.find((t) => t.id === me.track);
@@ -75,7 +156,7 @@ export default function Dashboard() {
             </button>
           ))}
         </div>
-            <a href={WHATSAPP_GROUP_LINK} target="_blank" rel="noreferrer"
+        <a href={WHATSAPP_GROUP_LINK} target="_blank" rel="noreferrer"
           className="aeb-focus mt-3 w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 font-medium"
           style={{ background: C.blue, color: "#fff" }}>
           Join our WhatsApp group
